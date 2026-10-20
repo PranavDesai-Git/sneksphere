@@ -1,0 +1,32 @@
+CompileFlags:
+  Add:
+    - "-Wall"
+    - "-Wextra"
+    - "-Wpedantic"
+    - "-Wshadow"
+    - "-Wstrict-prototypes"
+    - "-Wmissing-prototypes"
+    - "-Wmissing-declarations"
+    - "-Wredundant-decls"
+    - "-Wnested-externs"
+    - "-Wpointer-arith"
+    - "-Wcast-align"
+    - "-Wwrite-strings"
+    - "-Wuninitialized"
+    - "-Wconversion"
+    - "-Wdouble-promotion"
+    - "-Wformat=2"
+    - "-Wundef"
+    - "-Wimplicit-fallthrough"
+    - "-Wswitch-enum"
+    - "-Wvla"
+    - "-Wnull-dereference"
+    - "-Wstrict-overflow=2"
+Diagnostics:
+  ClangTidy:
+    Add:
+      - "bugprone-*"
+      - "clang-analyzer-*"
+      - "misc-*"
+      - "performance-*"
+      - "readability-*"

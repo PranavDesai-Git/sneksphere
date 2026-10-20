@@ -57,14 +57,39 @@ endif
 SYSTEM_LIBS   := -lm -lpthread -ldl -lrt -lX11
 
 # ------------------------------------------------------------------------------
-# Compilation and Linker Flags
+# Compilation and Linker Flags (Strict Warnings for C)
 # ------------------------------------------------------------------------------
-# Professional warning flags
-CFLAGS_WARN   := -Wall -Wextra -Wpedantic -Wshadow -Wstrict-prototypes
+# Comprehensive warnings covering syntax, types, safety, and strict standards
+CFLAGS_WARN   := -Wall \
+                 -Wextra \
+                 -Wpedantic \
+                 -Wshadow \
+                 -Wstrict-prototypes \
+                 -Wmissing-prototypes \
+                 -Wmissing-declarations \
+                 -Wredundant-decls \
+                 -Wnested-externs \
+                 -Wpointer-arith \
+                 -Wcast-align \
+                 -Wwrite-strings \
+                 -Wuninitialized \
+                 -Wconversion \
+                 -Wdouble-promotion \
+                 -Wformat=2 \
+                 -Wundef \
+                 -Wimplicit-fallthrough \
+                 -Wswitch-enum \
+                 -Wvla \
+                 -Wnull-dereference \
+                 -Wstrict-overflow=2
+
 CFLAGS_STD    := -std=c11
 
+# Convert Raylib -I into -isystem so third-party headers don't spam warnings
+RAYLIB_ISYSTEM := $(patsubst -I%,-isystem %,$(RAYLIB_CFLAGS))
+
 # Preprocessor flags: includes, raylib headers, dependency tracking
-CPPFLAGS      := $(INC_FLAGS) $(RAYLIB_CFLAGS) -MMD -MP
+CPPFLAGS      := $(INC_FLAGS) $(RAYLIB_ISYSTEM) -MMD -MP
 
 # Build mode: 'debug' (default) or 'release'
 # Usage: make MODE=release
