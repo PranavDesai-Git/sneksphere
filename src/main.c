@@ -44,10 +44,13 @@ int main(void) {
     snake.head = snakeHead;
     snake.tail = snakeHead;
 
-    int const initSnakeSize = 20;
+    Vector3 forward = (Vector3){0.0f, 0.0f, -1.0f};
+
+    int const initSnakeSize = 80;
 
     const float moveDist = 0.15F;
-    const float slideSpeed = 0.1F;
+    const float slideSpeed = 5.0F;
+    const float turnSpeed = 2.0F;
 
     for (int i = 0; i < initSnakeSize; ++i) {
         Node *newNode = malloc(sizeof(Node));
@@ -71,18 +74,19 @@ int main(void) {
             }
         }
         Node *head = snake.head;
-        if (IsKeyDown(KEY_W)) {
-            head->pos.z -= slideSpeed;
+        float deltaTime = GetFrameTime();
+        if (IsKeyDown(KEY_A) || IsKeyDown(KEY_LEFT)) {
+            forward = Vector3RotateByAxisAngle(forward, (Vector3){0, 1, 0},
+                                               turnSpeed * deltaTime);
         }
-        if (IsKeyDown(KEY_S)) {
-            head->pos.z += slideSpeed;
+        if (IsKeyDown(KEY_D) || IsKeyDown(KEY_RIGHT)) {
+            forward = Vector3RotateByAxisAngle(forward, (Vector3){0, 1, 0},
+                                               -turnSpeed * deltaTime);
         }
-        if (IsKeyDown(KEY_A)) {
-            head->pos.x -= slideSpeed;
-        }
-        if (IsKeyDown(KEY_D)) {
-            head->pos.x += slideSpeed;
-        }
+
+        head->pos = Vector3Add(head->pos,
+                               Vector3Scale(forward, slideSpeed * deltaTime));
+
         Node *temp = snake.head->prev;
 
         while (temp != NULL) {
