@@ -1,5 +1,6 @@
 #include <raylib.h>
 #include <raymath.h>
+#include <rlgl.h>
 #include <stdbool.h>
 #include <stdlib.h>
 
@@ -32,6 +33,23 @@ int main(void) {
     camera.up = (Vector3){0.0F, 1.0F, 0.0F};
     camera.fovy = 45.0F;
     camera.projection = CAMERA_PERSPECTIVE;
+
+    Mesh cube = GenMeshCube(1.0f, 1.0f, 1.0f);
+    Model skybox = LoadModelFromMesh(cube);
+
+    skybox.materials[0].shader =
+        LoadShader("assets/shaders/skybox.vs", "assets/shaders/skybox.fs");
+
+    int envMap = MATERIAL_MAP_CUBEMAP;
+    SetShaderValue(
+        skybox.materials[0].shader,
+        GetShaderLocation(skybox.materials[0].shader, "environmentMap"),
+        &envMap, SHADER_UNIFORM_INT);
+
+    Image img = LoadImage("assets/skybox.png");
+    skybox.materials[0].maps[MATERIAL_MAP_CUBEMAP].texture =
+        LoadTextureCubemap(img, CUBEMAP_LAYOUT_AUTO_DETECT);
+    UnloadImage(img);
 
     Snake snake;
 
@@ -125,6 +143,11 @@ int main(void) {
         ClearBackground(BLACK);
         BeginMode3D(camera);
         {
+            rlDisableBackfaceCulling();
+            rlDisableDepthMask();
+            DrawModel(skybox, (Vector3){0, 0, 0}, 1.0f, WHITE);
+            rlEnableBackfaceCulling();
+            rlEnableDepthMask();
             temp = snake.tail;
             while (temp != NULL) {
                 DrawSphere(temp->pos, 0.2F, RED);
@@ -137,6 +160,9 @@ int main(void) {
         DrawFPS(10, 10);
         EndDrawing();
     }
+    UnloadShader(skybox.materials[0].shader);
+    UnloadTexture(skybox.materials[0].maps[MATERIAL_MAP_CUBEMAP].texture);
+    UnloadModel(skybox);
     CloseWindow();
     return 0;
 }
