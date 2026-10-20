@@ -1,0 +1,13 @@
+# Build outputs
+out/
+objects/
+
+# Tooling and LSP caches
+.cache/
+compile_commands.json
+
+# Temporary files
+*.swp
+*.swo
+*~
+.DS_Store
