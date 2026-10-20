@@ -58,6 +58,26 @@ def main():
             "output": str(obj_path)
         })
 
+    # Index vendored libraries (e.g. vendor/raylib/src) so 'gd' jumps to actual C definitions
+    vendor_raylib_src = project_root / "vendor" / "raylib" / "src"
+    if vendor_raylib_src.is_dir():
+        raylib_flags = [
+            args.cc,
+            f"-I{vendor_raylib_src}",
+            f"-I{vendor_raylib_src / 'external' / 'glfw' / 'include'}",
+            "-D_GLFW_X11",
+            "-DPLATFORM_DESKTOP"
+        ]
+        for vsrc in sorted(vendor_raylib_src.glob("*.c")):
+            vobj = vsrc.with_suffix(".o")
+            vcmd = raylib_flags + ["-c", str(vsrc), "-o", str(vobj)]
+            commands.append({
+                "directory": str(project_root),
+                "command": shlex.join(vcmd),
+                "file": str(vsrc),
+                "output": str(vobj)
+            })
+
     output_path = Path(args.output).resolve()
     with open(output_path, "w", encoding="utf-8") as f:
         json.dump(commands, f, indent=2)

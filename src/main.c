@@ -1,5 +1,7 @@
 #include <raylib.h>
+#include <raymath.h>
 #include <stdbool.h>
+#include <stdlib.h>
 
 #define WIDTH 900
 #define HEIGHT 800
@@ -7,6 +9,17 @@
 #define TARGET_FPS 60
 
 static bool running = true;
+
+typedef struct node {
+    Vector3 pos;
+    struct node *next;
+    struct node *prev;
+} Node;
+
+typedef struct {
+    Node *head;
+    Node *tail;
+} Snake;
 
 int main(void) {
     InitWindow(WIDTH, HEIGHT, "sneksphere");
@@ -20,8 +33,31 @@ int main(void) {
     camera.fovy = 45.0F;
     camera.projection = CAMERA_PERSPECTIVE;
 
-    Vector3 currPos = {0, 0, 0};
-    const float radius = 2.0F;
+    Snake snake;
+
+    const float minDist = 1.0F;
+
+    Node *snakeHead = malloc(sizeof(Node));
+    snakeHead->next = NULL;
+    snakeHead->pos = (Vector3){0};
+
+    snake.head = snakeHead;
+    snake.tail = snakeHead;
+
+    int const initSnakeSize = 20;
+
+    const float moveDist = 0.15F;
+    const float slideSpeed = 0.1F;
+
+    for (int i = 0; i < initSnakeSize; ++i) {
+        Node *newNode = malloc(sizeof(Node));
+        newNode->next = snake.tail;
+        newNode->next->prev = newNode;
+        newNode->prev = NULL;
+        newNode->pos = Vector3Transform(snake.tail->pos,
+                                        MatrixTranslate(minDist, 0.0F, 0.0F));
+        snake.tail = newNode;
+    }
 
     while (!WindowShouldClose() && running) {
         if (IsKeyPressed(KEY_Q)) {
@@ -34,15 +70,43 @@ int main(void) {
                 DisableCursor();
             }
         }
-        if (IsCursorHidden()) {
-            camera.target = currPos;
-            UpdateCamera(&camera, CAMERA_THIRD_PERSON);
+        Node *head = snake.head;
+        if (IsKeyDown(KEY_W)) {
+            head->pos.z -= slideSpeed;
         }
+        if (IsKeyDown(KEY_S)) {
+            head->pos.z += slideSpeed;
+        }
+        if (IsKeyDown(KEY_A)) {
+            head->pos.x -= slideSpeed;
+        }
+        if (IsKeyDown(KEY_D)) {
+            head->pos.x += slideSpeed;
+        }
+        Node *temp = snake.head->prev;
+
+        while (temp != NULL) {
+            if (Vector3Distance(temp->pos, temp->next->pos) > minDist) {
+                temp->pos =
+                    Vector3MoveTowards(temp->pos, temp->next->pos, moveDist);
+            }
+            temp = temp->prev;
+        }
+
+        camera.position = snake.head->pos;
+        camera.position.y += 10.0F;
+        camera.position.z += 25.0F;
+        camera.target = snake.head->pos;
+
         BeginDrawing();
         ClearBackground(BLACK);
         BeginMode3D(camera);
         {
-            DrawSphere(currPos, radius, RED);
+            temp = snake.tail;
+            while (temp != NULL) {
+                DrawSphere(temp->pos, 0.2F, RED);
+                temp = temp->next;
+            }
             DrawGrid(10, 2.0F);
         }
         EndMode3D();

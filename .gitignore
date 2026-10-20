@@ -1,6 +1,7 @@
 # Build outputs
 out/
 objects/
+vendor/
 
 # Tooling and LSP caches
 .cache/

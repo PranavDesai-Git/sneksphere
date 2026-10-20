@@ -43,13 +43,21 @@ INC_FLAGS     := $(addprefix -I,$(INC_DIRS))
 # Include ~/.local/lib/pkgconfig in PKG_CONFIG_PATH for user-installed libraries
 export PKG_CONFIG_PATH := $(HOME)/.local/lib/pkgconfig:/usr/local/lib/pkgconfig:$(shell echo $$PKG_CONFIG_PATH)
 
-# Query pkg-config for raylib flags
-RAYLIB_CFLAGS := $(shell pkg-config --cflags raylib 2>/dev/null)
+# Prefer vendored raylib headers if present for direct definition indexing
+ifneq ($(wildcard vendor/raylib/src/raylib.h),)
+  RAYLIB_CFLAGS := -I$(CURDIR)/vendor/raylib/src
+else
+  # Query pkg-config for raylib flags
+  RAYLIB_CFLAGS := $(shell pkg-config --cflags raylib 2>/dev/null)
+endif
+
 RAYLIB_LIBS   := $(shell pkg-config --libs raylib 2>/dev/null)
 
 # Fallback paths if pkg-config cannot locate raylib
 ifeq ($(strip $(RAYLIB_LIBS)),)
-  RAYLIB_CFLAGS := -I$(HOME)/.local/include
+  ifeq ($(strip $(RAYLIB_CFLAGS)),)
+    RAYLIB_CFLAGS := -I$(HOME)/.local/include
+  endif
   RAYLIB_LIBS   := -L$(HOME)/.local/lib -lraylib
 endif
 
