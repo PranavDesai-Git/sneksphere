@@ -81,6 +81,13 @@ int main(void) {
     SetTextureWrap(planetTexture, TEXTURE_WRAP_REPEAT);
     planet.materials[0].maps[MATERIAL_MAP_DIFFUSE].texture = planetTexture;
 
+    Texture2D cursorTexture = {0};
+    if (FileExists("assets/cursor.png")) {
+        cursorTexture = LoadTexture("assets/cursor.png");
+        SetTextureFilter(cursorTexture, TEXTURE_FILTER_POINT);
+    }
+
+
     Snake snake;
 
     const float minDist = 1.0F;
@@ -210,9 +217,60 @@ int main(void) {
             DrawModel(planet, (Vector3){0, 0, 0}, 1.0f, WHITE);
         }
         EndMode3D();
+
+        // 2D Circular Navigation Compass pointing toward the apple
+        Vector3 toApple = Vector3Subtract(applePos, snake.head->pos);
+        Vector3 tangentDir = Vector3Subtract(
+            toApple, Vector3Scale(normal, Vector3DotProduct(toApple, normal)));
+
+        if (Vector3LengthSqr(tangentDir) > 0.0001F) {
+            Vector3 normTangent = Vector3Normalize(tangentDir);
+            Vector3 camForward =
+                Vector3Normalize(Vector3Subtract(camera.target, camera.position));
+            Vector3 camRight =
+                Vector3Normalize(Vector3CrossProduct(camForward, camera.up));
+            Vector3 cUp =
+                Vector3Normalize(Vector3CrossProduct(camRight, camForward));
+
+            float screenX = Vector3DotProduct(normTangent, camRight);
+            float screenY = -Vector3DotProduct(normTangent, cUp);
+            float angle = atan2f(screenY, screenX);
+
+            Vector2 center = GetWorldToScreen(snake.head->pos, camera);
+            if (center.x < 0 || center.x > (float)GetScreenWidth() ||
+                center.y < 0 || center.y > (float)GetScreenHeight()) {
+                center = (Vector2){(float)GetScreenWidth() / 2.0F,
+                                   (float)GetScreenHeight() / 2.0F};
+            }
+
+            float ringRadius = 100.0F;
+
+            // Position of the cursor along the circular orbit around the snake
+            Vector2 cursorPos = {center.x + cosf(angle) * ringRadius,
+                                 center.y + sinf(angle) * ringRadius};
+
+            // Draw custom pixel art cursor if loaded
+            if (cursorTexture.id > 0) {
+                float scale = 2.0F;
+                Rectangle srcRec = {0.0F, 0.0F, (float)cursorTexture.width,
+                                    (float)cursorTexture.height};
+                Rectangle destRec = {cursorPos.x, cursorPos.y,
+                                     (float)cursorTexture.width * scale,
+                                     (float)cursorTexture.height * scale};
+                Vector2 origin = {destRec.width / 2.0F, destRec.height / 2.0F};
+                DrawTexturePro(cursorTexture, srcRec, destRec, origin,
+                               angle * RAD2DEG, WHITE);
+            }
+        }
         DrawFPS(10, 10);
         DrawText(TextFormat("Apples: %i", score), 10, 35, 20, GOLD);
+        float distToApple = Vector3Distance(snake.head->pos, applePos);
+        DrawText(TextFormat("Distance: %.1f", (double)distToApple), 10, 60, 18,
+                 LIGHTGRAY);
         EndDrawing();
+    }
+    if (cursorTexture.id > 0) {
+        UnloadTexture(cursorTexture);
     }
     UnloadTexture(planetTexture);
     UnloadShader(triplanarShader);
