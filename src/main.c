@@ -51,10 +51,28 @@ int main(void) {
         LoadTextureCubemap(img, CUBEMAP_LAYOUT_AUTO_DETECT);
     UnloadImage(img);
 
+    const float sphereRadius = 10.0F;
+
+    Mesh sphereMesh = GenMeshSphere(sphereRadius, 64, 64);
+    Model planet = LoadModelFromMesh(sphereMesh);
+
+    Shader triplanarShader = LoadShader("assets/shaders/triplanar.vs",
+                                        "assets/shaders/triplanar.fs");
+
+    float texScale = 0.4F;
+    SetShaderValue(triplanarShader,
+                   GetShaderLocation(triplanarShader, "texScale"), &texScale,
+                   SHADER_UNIFORM_FLOAT);
+
+    planet.materials[0].shader = triplanarShader;
+
+    Texture2D planetTexture = LoadTexture("assets/planet.png");
+    SetTextureWrap(planetTexture, TEXTURE_WRAP_REPEAT);
+    planet.materials[0].maps[MATERIAL_MAP_DIFFUSE].texture = planetTexture;
+
     Snake snake;
 
     const float minDist = 1.0F;
-    const float sphereRadius = 10.0F;
 
     Node *snakeHead = malloc(sizeof(Node));
     snakeHead->next = NULL;
@@ -154,12 +172,15 @@ int main(void) {
                 temp = temp->next;
             }
 
-            DrawSphere((Vector3){0}, sphereRadius, WHITE);
+            DrawModel(planet, (Vector3){0, 0, 0}, 1.0f, WHITE);
         }
         EndMode3D();
         DrawFPS(10, 10);
         EndDrawing();
     }
+    UnloadTexture(planetTexture);
+    UnloadShader(triplanarShader);
+    UnloadModel(planet);
     UnloadShader(skybox.materials[0].shader);
     UnloadTexture(skybox.materials[0].maps[MATERIAL_MAP_CUBEMAP].texture);
     UnloadModel(skybox);
