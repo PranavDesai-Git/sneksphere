@@ -22,6 +22,17 @@ typedef struct {
     Node *tail;
 } Snake;
 
+static Vector3 SpawnApple(float sphereRadius) {
+    Vector3 dir;
+    do {
+        dir.x = (float)GetRandomValue(-1000, 1000);
+        dir.y = (float)GetRandomValue(-1000, 1000);
+        dir.z = (float)GetRandomValue(-1000, 1000);
+    } while (Vector3LengthSqr(dir) < 0.001F);
+
+    return Vector3Scale(Vector3Normalize(dir), sphereRadius);
+}
+
 int main(void) {
     InitWindow(WIDTH, HEIGHT, "sneksphere");
     SetTargetFPS(TARGET_FPS);
@@ -73,6 +84,10 @@ int main(void) {
     Snake snake;
 
     const float minDist = 1.0F;
+    const float appleRadius = 0.5F;
+    Vector3 applePos = SpawnApple(sphereRadius);
+    int score = 0;
+
 
     Node *snakeHead = malloc(sizeof(Node));
     snakeHead->next = NULL;
@@ -87,7 +102,7 @@ int main(void) {
     int const initSnakeSize = 500;
 
     const float moveDist = 0.15F;
-    const float slideSpeed = 5.0F;
+    float slideSpeed = 5.0F;
     const float turnSpeed = 5.0F;
 
     for (int i = 0; i < initSnakeSize; ++i) {
@@ -146,6 +161,23 @@ int main(void) {
             temp = temp->prev;
         }
 
+        // Check apple collection
+        if (Vector3Distance(head->pos, applePos) < (0.2F + appleRadius)) {
+            applePos = SpawnApple(sphereRadius);
+            score++;
+
+            // Grow the snake
+            for (int g = 0; g < 5; ++g) {
+                Node *newNode = malloc(sizeof(Node));
+                newNode->next = snake.tail;
+                newNode->next->prev = newNode;
+                newNode->prev = NULL;
+                newNode->pos = snake.tail->pos;
+                snake.tail = newNode;
+            }
+            slideSpeed += 0.1F;
+        }
+
         const float camHeight = 6.0F;
         const float camDistance = 12.0F;
         Vector3 camUp = Vector3Normalize(snake.head->pos);
@@ -172,10 +204,14 @@ int main(void) {
                 temp = temp->next;
             }
 
+            DrawSphere(applePos, appleRadius, GOLD);
+            DrawSphereWires(applePos, appleRadius + 0.02F, 8, 8, ORANGE);
+
             DrawModel(planet, (Vector3){0, 0, 0}, 1.0f, WHITE);
         }
         EndMode3D();
         DrawFPS(10, 10);
+        DrawText(TextFormat("Apples: %i", score), 10, 35, 20, GOLD);
         EndDrawing();
     }
     UnloadTexture(planetTexture);
