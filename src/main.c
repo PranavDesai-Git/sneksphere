@@ -36,29 +36,33 @@ int main(void) {
     Snake snake;
 
     const float minDist = 1.0F;
+    const float sphereRadius = 10.0F;
 
     Node *snakeHead = malloc(sizeof(Node));
     snakeHead->next = NULL;
-    snakeHead->pos = (Vector3){0};
+    snakeHead->prev = NULL;
+    snakeHead->pos = (Vector3){0.0F, sphereRadius, 0.0F};
 
     snake.head = snakeHead;
     snake.tail = snakeHead;
 
     Vector3 forward = (Vector3){0.0f, 0.0f, -1.0f};
 
-    int const initSnakeSize = 80;
+    int const initSnakeSize = 500;
 
     const float moveDist = 0.15F;
     const float slideSpeed = 5.0F;
-    const float turnSpeed = 2.0F;
+    const float turnSpeed = 5.0F;
 
     for (int i = 0; i < initSnakeSize; ++i) {
         Node *newNode = malloc(sizeof(Node));
         newNode->next = snake.tail;
         newNode->next->prev = newNode;
         newNode->prev = NULL;
-        newNode->pos = Vector3Transform(snake.tail->pos,
-                                        MatrixTranslate(minDist, 0.0F, 0.0F));
+        newNode->pos =
+            Vector3Scale(Vector3Normalize(Vector3Add(
+                             snake.tail->pos, (Vector3){0.0F, 0.0F, minDist})),
+                         sphereRadius);
         snake.tail = newNode;
     }
 
@@ -75,17 +79,24 @@ int main(void) {
         }
         Node *head = snake.head;
         float deltaTime = GetFrameTime();
+        Vector3 normal = Vector3Normalize(head->pos);
+
         if (IsKeyDown(KEY_A) || IsKeyDown(KEY_LEFT)) {
-            forward = Vector3RotateByAxisAngle(forward, (Vector3){0, 1, 0},
+            forward = Vector3RotateByAxisAngle(forward, normal,
                                                turnSpeed * deltaTime);
         }
         if (IsKeyDown(KEY_D) || IsKeyDown(KEY_RIGHT)) {
-            forward = Vector3RotateByAxisAngle(forward, (Vector3){0, 1, 0},
+            forward = Vector3RotateByAxisAngle(forward, normal,
                                                -turnSpeed * deltaTime);
         }
 
         head->pos = Vector3Add(head->pos,
                                Vector3Scale(forward, slideSpeed * deltaTime));
+        head->pos = Vector3Scale(Vector3Normalize(head->pos), sphereRadius);
+
+        normal = Vector3Normalize(head->pos);
+        Vector3 right = Vector3Normalize(Vector3CrossProduct(forward, normal));
+        forward = Vector3Normalize(Vector3CrossProduct(normal, right));
 
         Node *temp = snake.head->prev;
 
@@ -93,14 +104,22 @@ int main(void) {
             if (Vector3Distance(temp->pos, temp->next->pos) > minDist) {
                 temp->pos =
                     Vector3MoveTowards(temp->pos, temp->next->pos, moveDist);
+                temp->pos =
+                    Vector3Scale(Vector3Normalize(temp->pos), sphereRadius);
             }
             temp = temp->prev;
         }
 
-        camera.position = snake.head->pos;
-        camera.position.y += 10.0F;
-        camera.position.z += 25.0F;
+        const float camHeight = 6.0F;
+        const float camDistance = 12.0F;
+        Vector3 camUp = Vector3Normalize(snake.head->pos);
+        Vector3 upOffset = Vector3Scale(camUp, camHeight);
+        Vector3 backOffset = Vector3Scale(forward, -camDistance);
+
+        camera.position =
+            Vector3Add(snake.head->pos, Vector3Add(upOffset, backOffset));
         camera.target = snake.head->pos;
+        camera.up = camUp;
 
         BeginDrawing();
         ClearBackground(BLACK);
@@ -111,7 +130,8 @@ int main(void) {
                 DrawSphere(temp->pos, 0.2F, RED);
                 temp = temp->next;
             }
-            DrawGrid(10, 2.0F);
+
+            DrawSphere((Vector3){0}, sphereRadius, WHITE);
         }
         EndMode3D();
         DrawFPS(10, 10);
