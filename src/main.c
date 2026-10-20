@@ -33,6 +33,40 @@ static Vector3 SpawnApple(float sphereRadius) {
     return Vector3Scale(Vector3Normalize(dir), sphereRadius);
 }
 
+static void FreeSnake(Snake *snake) {
+    Node *curr = snake->tail;
+    while (curr != NULL) {
+        Node *next = curr->next;
+        free(curr);
+        curr = next;
+    }
+    snake->head = NULL;
+    snake->tail = NULL;
+}
+
+static void InitSnake(Snake *snake, float sphereRadius, float minDist,
+                      int initSize) {
+    Node *snakeHead = malloc(sizeof(Node));
+    snakeHead->next = NULL;
+    snakeHead->prev = NULL;
+    snakeHead->pos = (Vector3){0.0F, sphereRadius, 0.0F};
+
+    snake->head = snakeHead;
+    snake->tail = snakeHead;
+
+    for (int i = 0; i < initSize; ++i) {
+        Node *newNode = malloc(sizeof(Node));
+        newNode->next = snake->tail;
+        newNode->next->prev = newNode;
+        newNode->prev = NULL;
+        newNode->pos =
+            Vector3Scale(Vector3Normalize(Vector3Add(
+                             snake->tail->pos, (Vector3){0.0F, 0.0F, minDist})),
+                         sphereRadius);
+        snake->tail = newNode;
+    }
+}
+
 int main(void) {
     InitWindow(WIDTH, HEIGHT, "sneksphere");
     SetTargetFPS(TARGET_FPS);
@@ -87,42 +121,30 @@ int main(void) {
         SetTextureFilter(cursorTexture, TEXTURE_FILTER_POINT);
     }
 
-
     Snake snake;
 
     const float minDist = 1.0F;
+
     const float appleRadius = 0.5F;
     Vector3 applePos = SpawnApple(sphereRadius);
     int score = 0;
-
-
-    Node *snakeHead = malloc(sizeof(Node));
-    snakeHead->next = NULL;
-    snakeHead->prev = NULL;
-    snakeHead->pos = (Vector3){0.0F, sphereRadius, 0.0F};
-
-    snake.head = snakeHead;
-    snake.tail = snakeHead;
+    bool gameOver = false;
 
     Vector3 forward = (Vector3){0.0f, 0.0f, -1.0f};
 
-    int const initSnakeSize = 500;
+    int const initSnakeSize = 3;
 
     const float moveDist = 0.15F;
     float slideSpeed = 5.0F;
     const float turnSpeed = 5.0F;
 
-    for (int i = 0; i < initSnakeSize; ++i) {
-        Node *newNode = malloc(sizeof(Node));
-        newNode->next = snake.tail;
-        newNode->next->prev = newNode;
-        newNode->prev = NULL;
-        newNode->pos =
-            Vector3Scale(Vector3Normalize(Vector3Add(
-                             snake.tail->pos, (Vector3){0.0F, 0.0F, minDist})),
-                         sphereRadius);
-        snake.tail = newNode;
-    }
+    float altitude = 0.0F;
+    float verticalVelocity = 0.0F;
+    bool isGrounded = true;
+    const float jumpForce = 12.0F;
+    const float gravity = 28.0F;
+
+    InitSnake(&snake, sphereRadius, minDist, initSnakeSize);
 
     while (!WindowShouldClose() && running) {
         if (IsKeyPressed(KEY_Q)) {
@@ -135,54 +157,115 @@ int main(void) {
                 DisableCursor();
             }
         }
-        Node *head = snake.head;
         float deltaTime = GetFrameTime();
-        Vector3 normal = Vector3Normalize(head->pos);
+        Vector3 normal = Vector3Normalize(snake.head->pos);
+        Node *temp = NULL;
 
-        if (IsKeyDown(KEY_A) || IsKeyDown(KEY_LEFT)) {
-            forward = Vector3RotateByAxisAngle(forward, normal,
-                                               turnSpeed * deltaTime);
-        }
-        if (IsKeyDown(KEY_D) || IsKeyDown(KEY_RIGHT)) {
-            forward = Vector3RotateByAxisAngle(forward, normal,
-                                               -turnSpeed * deltaTime);
-        }
-
-        head->pos = Vector3Add(head->pos,
-                               Vector3Scale(forward, slideSpeed * deltaTime));
-        head->pos = Vector3Scale(Vector3Normalize(head->pos), sphereRadius);
-
-        normal = Vector3Normalize(head->pos);
-        Vector3 right = Vector3Normalize(Vector3CrossProduct(forward, normal));
-        forward = Vector3Normalize(Vector3CrossProduct(normal, right));
-
-        Node *temp = snake.head->prev;
-
-        while (temp != NULL) {
-            if (Vector3Distance(temp->pos, temp->next->pos) > minDist) {
-                temp->pos =
-                    Vector3MoveTowards(temp->pos, temp->next->pos, moveDist);
-                temp->pos =
-                    Vector3Scale(Vector3Normalize(temp->pos), sphereRadius);
+        if (gameOver) {
+            if (IsKeyPressed(KEY_R)) {
+                FreeSnake(&snake);
+                InitSnake(&snake, sphereRadius, minDist, initSnakeSize);
+                forward = (Vector3){0.0f, 0.0f, -1.0f};
+                slideSpeed = 5.0F;
+                altitude = 0.0F;
+                verticalVelocity = 0.0F;
+                isGrounded = true;
+                score = 0;
+                applePos = SpawnApple(sphereRadius);
+                gameOver = false;
             }
-            temp = temp->prev;
-        }
-
-        // Check apple collection
-        if (Vector3Distance(head->pos, applePos) < (0.2F + appleRadius)) {
-            applePos = SpawnApple(sphereRadius);
-            score++;
-
-            // Grow the snake
-            for (int g = 0; g < 5; ++g) {
-                Node *newNode = malloc(sizeof(Node));
-                newNode->next = snake.tail;
-                newNode->next->prev = newNode;
-                newNode->prev = NULL;
-                newNode->pos = snake.tail->pos;
-                snake.tail = newNode;
+        } else {
+            // Jump mechanics
+            if (IsKeyPressed(KEY_SPACE) && isGrounded) {
+                verticalVelocity = jumpForce;
+                isGrounded = false;
             }
-            slideSpeed += 0.1F;
+
+            if (!isGrounded) {
+                verticalVelocity -= gravity * deltaTime;
+                altitude += verticalVelocity * deltaTime;
+                if (altitude <= 0.0F) {
+                    altitude = 0.0F;
+                    verticalVelocity = 0.0F;
+                    isGrounded = true;
+                }
+            }
+
+            Node *head = snake.head;
+            normal = Vector3Normalize(head->pos);
+
+            if (IsKeyDown(KEY_A) || IsKeyDown(KEY_LEFT)) {
+                forward = Vector3RotateByAxisAngle(forward, normal,
+                                                   turnSpeed * deltaTime);
+            }
+            if (IsKeyDown(KEY_D) || IsKeyDown(KEY_RIGHT)) {
+                forward = Vector3RotateByAxisAngle(forward, normal,
+                                                   -turnSpeed * deltaTime);
+            }
+
+            head->pos = Vector3Add(
+                head->pos, Vector3Scale(forward, slideSpeed * deltaTime));
+            head->pos = Vector3Scale(Vector3Normalize(head->pos),
+                                     sphereRadius + altitude);
+
+            normal = Vector3Normalize(head->pos);
+            Vector3 right =
+                Vector3Normalize(Vector3CrossProduct(forward, normal));
+            forward = Vector3Normalize(Vector3CrossProduct(normal, right));
+
+            temp = snake.head->prev;
+
+            while (temp != NULL) {
+                if (Vector3Distance(temp->pos, temp->next->pos) > minDist) {
+                    temp->pos = Vector3MoveTowards(temp->pos, temp->next->pos,
+                                                   moveDist);
+
+                    // Allow body to arch into the air, only clamp if sinking
+                    // inside the planet
+                    if (Vector3Length(temp->pos) < sphereRadius) {
+                        temp->pos = Vector3Scale(Vector3Normalize(temp->pos),
+                                                 sphereRadius);
+                    }
+                }
+                temp = temp->prev;
+            }
+
+            // Self-collision (die if head hits body)
+            // Skip first 6 neck segments so you don't collide with your own
+            // neck
+            Node *check = snake.head->prev;
+            int segmentIndex = 0;
+            const int safeNeckCount = 6;
+            const float collisionDist = 0.35F;
+
+            while (check != NULL) {
+                segmentIndex++;
+                if (segmentIndex > safeNeckCount) {
+                    if (Vector3Distance(head->pos, check->pos) <
+                        collisionDist) {
+                        gameOver = true;
+                        break;
+                    }
+                }
+                check = check->prev;
+            }
+
+            // Check apple collection
+            if (Vector3Distance(head->pos, applePos) < (0.2F + appleRadius)) {
+                applePos = SpawnApple(sphereRadius);
+                score++;
+
+                // Grow the snake
+                for (int g = 0; g < 5; ++g) {
+                    Node *newNode = malloc(sizeof(Node));
+                    newNode->next = snake.tail;
+                    newNode->next->prev = newNode;
+                    newNode->prev = NULL;
+                    newNode->pos = snake.tail->pos;
+                    snake.tail = newNode;
+                }
+                slideSpeed += 0.1F;
+            }
         }
 
         const float camHeight = 6.0F;
@@ -225,8 +308,8 @@ int main(void) {
 
         if (Vector3LengthSqr(tangentDir) > 0.0001F) {
             Vector3 normTangent = Vector3Normalize(tangentDir);
-            Vector3 camForward =
-                Vector3Normalize(Vector3Subtract(camera.target, camera.position));
+            Vector3 camForward = Vector3Normalize(
+                Vector3Subtract(camera.target, camera.position));
             Vector3 camRight =
                 Vector3Normalize(Vector3CrossProduct(camForward, camera.up));
             Vector3 cUp =
@@ -262,13 +345,23 @@ int main(void) {
                                angle * RAD2DEG, WHITE);
             }
         }
+
         DrawFPS(10, 10);
         DrawText(TextFormat("Apples: %i", score), 10, 35, 20, GOLD);
         float distToApple = Vector3Distance(snake.head->pos, applePos);
         DrawText(TextFormat("Distance: %.1f", (double)distToApple), 10, 60, 18,
                  LIGHTGRAY);
+
+        if (gameOver) {
+            DrawText("GAME OVER!", GetScreenWidth() / 2 - 140,
+                     GetScreenHeight() / 2 - 40, 50, RED);
+            DrawText("Press 'R' to Restart", GetScreenWidth() / 2 - 110,
+                     GetScreenHeight() / 2 + 25, 22, WHITE);
+        }
+
         EndDrawing();
     }
+    FreeSnake(&snake);
     if (cursorTexture.id > 0) {
         UnloadTexture(cursorTexture);
     }
